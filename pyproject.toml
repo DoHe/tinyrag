@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "tinyrag"
+version = "0.0.1"
+description = "Tiny RAG"
+authors = ["dohe <wahlholz@gmx.de>"]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+langchain = "^0.1.1"
+langchain-community = "^0.0.13"
+langchainhub = "^0.1.14"
+chromadb = "^0.4.22"
+sentence-transformers = "^2.2.2"
+llama-cpp-python = "^0.2.31"
+
+[tool.poetry.dev-dependencies]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
