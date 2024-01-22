@@ -1,0 +1,10 @@
+Charizard
+
+It is said that Charizard’s fire burns hotter if it has experienced harsh battles.
+
+Height: 5' 07"
+Category: Flame
+Weight: 199.5 lbs
+Abilities: Blaze
+Type: Fire, Flying
+Evolution: Charmander > Charmeleon > Charizard

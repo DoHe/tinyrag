@@ -1,19 +1,26 @@
-import sys
-
 from rag import TinyRAG
 
 
 def main():
-    query = "When was Arnis founded?"
-    if len(sys.argv) > 1:
-        query = sys.argv[1]
-
     print("Starting RAG...")
     rag = TinyRAG()
-    print(f"Querying for '{query}'...")
-    response = rag.query(query)
-    print("Response:")
-    print(response)
+
+    rag_active = True
+    while True:
+        activate_text = "'d' to disable rag" if rag_active else "'a' to activate rag"
+        input_text = f"Write your prompt or {activate_text}:\n"
+        query = input(input_text)
+
+        if not query:
+            continue
+        if query == "d":
+            rag_active = False
+            continue
+        if query == "a":
+            rag_active = True
+            continue
+
+        rag.query(query, rag_active)
 
 
 if __name__ == "__main__":

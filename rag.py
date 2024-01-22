@@ -30,7 +30,7 @@ class TinyRAG:
         retriever = self._start_vectore_store(documents=splits, embedding=embedder)
         llm = self._load_llm()
 
-        self.rag_chain = self._assemble_chain(retriever, llm)
+        self.rag_chain, self.non_rag_chain = self._assemble_chains(retriever, llm)
 
     def _load_docs(self):
         print("Loading documents...")
@@ -92,8 +92,8 @@ class TinyRAG:
 
         return llm
 
-    def _assemble_chain(self, retriever, llm):
-        print("Assembling chain...")
+    def _assemble_chains(self, retriever, llm):
+        print("Assembling chains...")
         prompt = hub.pull("rlm/rag-prompt")
         rag_chain = (
             {"context": retriever | format_docs, "question": RunnablePassthrough()}
@@ -101,13 +101,15 @@ class TinyRAG:
             | llm
             | StrOutputParser()
         )
+        non_rag_chain = llm | StrOutputParser()
         print("Done")
 
-        return rag_chain
+        return rag_chain, non_rag_chain
 
-    def query(self, query: str) -> str:
+    def query(self, query: str, use_rag=True) -> str:
+        chain = self.rag_chain if use_rag else self.non_rag_chain
         chunks = ""
-        for chunk in self.rag_chain.stream(query):
+        for chunk in chain.stream(query):
             print(chunk, end="", flush=True)
             chunks += chunk
         return chunks

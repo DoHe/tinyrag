@@ -10,8 +10,9 @@ Install all dependencies using [poetry](https://python-poetry.org/):
 
 # Running
 
-Just run the `main.py` followed by your query, e.g.:
+Just run the `main.py` using:
 
-    poetry run python main.py 'what is the populaton of arnis?'
+    poetry run python main.py
 
-This will download the necessary embeddings model, start a vector database, index all documents and run your query against phi-2 with a RAG prompt.
+This will download the necessary embeddings model, start a vector database, index all documents and wait for your input.
+It will run your prompt against phi-2 with an optional RAG prompt and context from the vector database. If you deactivate RAG typing 'd', the prompt will directly be sent to phi-2, without a system prompt or context data.
