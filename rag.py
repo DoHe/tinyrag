@@ -7,6 +7,7 @@ from langchain_community.llms import LlamaCpp
 from langchain_community.vectorstores import Chroma
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
+from langchain.prompts import PromptTemplate
 from langchain import hub
 
 
@@ -70,9 +71,7 @@ class TinyRAG:
     def _start_vectore_store(self, documents, embedding):
         print("Creating vector store...")
         vectorstore = Chroma.from_documents(documents=documents, embedding=embedding)
-        retriever = vectorstore.as_retriever(
-            search_type="similarity", search_kwargs={"k": 2}
-        )
+        retriever = vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": 2})
         print("Done")
 
         return retriever
@@ -94,14 +93,19 @@ class TinyRAG:
 
     def _assemble_chains(self, retriever, llm):
         print("Assembling chains...")
-        prompt = hub.pull("rlm/rag-prompt")
+        rag_prompt = hub.pull("rlm/rag-prompt")
         rag_chain = (
             {"context": retriever | format_docs, "question": RunnablePassthrough()}
-            | prompt
+            | rag_prompt
             | llm
             | StrOutputParser()
         )
-        non_rag_chain = llm | StrOutputParser()
+        non_rag_prompt = PromptTemplate.from_template(
+            "You are an assistant for question-answering tasks. If you don't know the answer, just say that you don't know. Use three sentences maximum and keep the answer concise.\nQuestion: {question} \nAnswer:"
+        )
+        non_rag_chain = (
+            {"question": RunnablePassthrough()} | non_rag_prompt | llm | StrOutputParser()
+        )
         print("Done")
 
         return rag_chain, non_rag_chain
