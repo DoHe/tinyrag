@@ -1,12 +1,12 @@
+import os
+
 from langchain_community.document_loaders import DirectoryLoader, TextLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.callbacks.manager import CallbackManager
-from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from langchain_community.embeddings import HuggingFaceBgeEmbeddings
 from langchain_community.llms import LlamaCpp
 from langchain_community.vectorstores import Chroma
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.runnables import RunnablePassthrough
+from langchain_core.runnables import RunnablePassthrough, RunnableLambda
 from langchain.prompts import PromptTemplate
 from langchain import hub
 
@@ -15,16 +15,29 @@ def format_docs(docs):
     return "\n\n".join(doc.page_content for doc in docs)
 
 
+def log_chain(args, message):
+    print(message)
+    return args
+
+
 class TinyRAG:
     def __init__(
         self,
-        docs_path="./corpus",
-        phi_model="Q5_K_S",
-        embedding_model="BAAI/bge-small-en",
+        model_path,
+        quantization,
+        embedding_model,
+        corpus_directory,
+        num_retrieved,
+        chunk_size,
+        chunk_overlap,
     ):
-        self.docs_path = docs_path
-        self.phi_model = phi_model
+        self.model_path = model_path
+        self.quantization = quantization
         self.embedding_model = embedding_model
+        self.corpus_directory = corpus_directory
+        self.num_retrieved = num_retrieved
+        self.chunk_size = chunk_size
+        self.chunk_overlap = chunk_overlap
 
         splits = self._load_docs()
         embedder = self._load_embeddings()
@@ -36,7 +49,7 @@ class TinyRAG:
     def _load_docs(self):
         print("Loading documents...")
         loader = DirectoryLoader(
-            self.docs_path,
+            self.corpus_directory,
             glob="*.txt",
             use_multithreading=True,
             show_progress=True,
@@ -44,8 +57,8 @@ class TinyRAG:
         )
         docs = loader.load()
         text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=400,
-            chunk_overlap=100,
+            chunk_size=self.chunk_size,
+            chunk_overlap=self.chunk_overlap,
             add_start_index=True,
         )
 
@@ -71,21 +84,21 @@ class TinyRAG:
     def _start_vectore_store(self, documents, embedding):
         print("Creating vector store...")
         vectorstore = Chroma.from_documents(documents=documents, embedding=embedding)
-        retriever = vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": 2})
+        retriever = vectorstore.as_retriever(
+            search_type="similarity", search_kwargs={"k": self.num_retrieved}
+        )
         print("Done")
 
         return retriever
 
     def _load_llm(self):
         print("Loading LLM...")
-        # callback_manager = CallbackManager([StreamingStdOutCallbackHandler()])
+        file_name = f"phi-2.{self.quantization}.gguf"
         llm = LlamaCpp(
-            model_path=f"../phi-2-GGUF/phi-2.{self.phi_model}.gguf",
+            model_path=os.path.join(self.model_path, file_name),
             temperature=0.1,
             max_tokens=1000,
             top_p=1,
-            # callback_manager=callback_manager,
-            # verbose=True,  # Verbose is required to pass to the callback manager
         )
         print("Done")
 
@@ -95,16 +108,25 @@ class TinyRAG:
         print("Assembling chains...")
         rag_prompt = hub.pull("rlm/rag-prompt")
         rag_chain = (
-            {"context": retriever | format_docs, "question": RunnablePassthrough()}
+            RunnableLambda(lambda args: log_chain(args, "Retrieving context"))
+            | {"context": retriever | format_docs, "question": RunnablePassthrough()}
+            | RunnableLambda(lambda args: log_chain(args, "Got context"))
             | rag_prompt
+            | RunnableLambda(lambda args: log_chain(args, "Prompting LLM"))
             | llm
             | StrOutputParser()
         )
         non_rag_prompt = PromptTemplate.from_template(
-            "You are an assistant for question-answering tasks. If you don't know the answer, just say that you don't know. Use three sentences maximum and keep the answer concise.\nQuestion: {question} \nAnswer:"
+            "You are an assistant for question-answering tasks. If you don't know the answer, "
+            "just say that you don't know. Use three sentences maximum and keep the answer concise."
+            "\nQuestion: {question} \nAnswer:"
         )
         non_rag_chain = (
-            {"question": RunnablePassthrough()} | non_rag_prompt | llm | StrOutputParser()
+            {"question": RunnablePassthrough()}
+            | non_rag_prompt
+            | RunnableLambda(lambda args: log_chain(args, "Prompting LLM"))
+            | llm
+            | StrOutputParser()
         )
         print("Done")
 
